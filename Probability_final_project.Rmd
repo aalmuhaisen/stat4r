@@ -1,0 +1,253 @@
+---
+title: "Exploring the BRFSS data - **DRAFT**"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(scales)
+```
+
+### Load data
+
+
+```{r load-data}
+load("brfss2013.R")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+As stated in the Center for Disease Control and Prevention website, The survey is conducted using Random Digit Dialing. Generally since we chose the participants randomly we can generalize the outcome over the population, but, since this was not a controlled experiment with random assignment of the participant to treatment and control group we can not infer causality using these data. Although we can generalize the findings, one type of bias may arise which is non-response bias. Where the response of non-respondents would differ from that of the respondents. This bias can be eliminated using some know techniques like multiple call attempts and providing monetary incentives.
+
+* * *
+
+## Part 2: Research questions
+Although we can not infer causation relations based on the data we have, we still can explore some interesting findings and correlations. Below are some of them.
+
+**Research quesion 1:**
+How are height and weight distributed and what can we learn from it?
+
+**Research quesion 2:**
+Is married people happier than singles? Does number of children make a difference?
+
+**Research quesion 3:**
+Is there a relation between income and happiness & health?
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+In this part we will try to answer the questions above using different techniques we have learned in this course.
+
+**Research quesion 1:**
+
+To answer first question we will look at the distribution of height and weight and find out what we can learn from it.
+```{r}
+#Select the relevant variables
+q1data1 <- na.omit(select(brfss2013, height3, weight2))
+#Transform data into numeric & remove outliers
+q1data2 <- transform(q1data1,weight2 = as.numeric(weight2), height3 = as.numeric(height3)) %>% filter( height3 > 400 & height3 < 800 & weight2 > 60 & weight2 < 400)
+#Height in meters & weight in kg
+height <- as.numeric(substr(q1data2$height3,1,1))*0.3048+as.numeric(substr(q1data2$height3,2,3))*0.0254
+weight <- as.numeric(q1data2$weight2)*0.453592
+#Plot Height
+ggplot() + aes(height)+ geom_histogram(bins = 20) + labs(title = "Height Distrbution in Meters", x = "Height")
+```
+
+The distribution of height seems to be normal and symmetric around a mean close to 1.7 meters.
+```{r}
+#Check for normality
+ggplot() + aes(sample = height) + stat_qq()
+```
+
+As we can see from the quantile plot test above, the height seems to be normally distributed with no noticeable skewness.
+```{r}
+#Plot Weight
+ggplot() + aes(weight)+ geom_histogram(bins = 20)+ labs(title = "Weight Distrbution in Kg", x = "Weight")
+```
+
+The distribution of weight is skewed to the right. Most weights are below 60 Kg. Combining the distribution of height and weight give us indication that most people don't suffer from obesity.
+```{r}
+#Check for normality
+ggplot() + aes(sample = weight) + stat_qq()
+
+```
+
+Confirming the distribution of weight, the quantile plot test provide an evidence that weight distribution is skewed to the high end.
+
+```{r}
+#Summary Statistics for height
+summary(height)
+```
+
+From the table above we can see that 50% of people lay between 1.65m and 1.73m. The lowest bound is 1.25m where the highest is 2.4m. Mean and Median are centered around 1.73m. This inline with the fact that height is normally distributed with no skewness.
+```{r}
+#Summary statistics for weight
+summary(weight)
+```
+
+When it come to weight, we can see that the Mean is 47 Kg while the Median is 42 Kg. This is another indicator that weight is skewed to the right. 75% of respondents weigh 56 Kg or less. Unlike height, it is easier to control weight. This explain why height is normally distributed and symmetric around the mean unlike weight which skewed to the high end. 
+
+
+**Research quesion 2:**
+
+Here we will see whether married people are happier than singles or not.
+```{r}
+#subset the required variables for Q2 and omit NA's.
+q2data1 <- na.omit(select(brfss2013, marital, children, misdeprd))
+#Filter martial status to select what we need
+q2data1 <- filter(q2data1, marital == "Married" | marital == "Never married")
+#Plot the graph
+ggplot(q2data1,aes(x = marital,fill = misdeprd)) + geom_bar(position = "fill") + labs(title = "Marital & Happiness", x = "Marital Status", y = "Proportion", fill = "Depression")
+```
+
+We can see from the graph above that married people are generally happier than singles. From the graph the difference is sound.
+```{r}
+#Use dplyr functions to formulate the required data
+number2 <- q2data1 %>% group_by(marital) %>% summarise(happy = sum(misdeprd == "None")/ 1)
+prop2 <- q2data1 %>% group_by(marital) %>% summarise(propotion = sum(misdeprd == "None")/ n())
+tot2 <- q2data1 %>% group_by(marital) %>% summarise(Total = sum(misdeprd !="d"))
+#Combile data in one table
+mar_n_happ <- cbind(number2[1],number2[2],prop2[2],tot2[2])
+mar_n_happ
+```
+
+The table above show us the number of people who reported that they never felt depressed, their proportion and total number of respondent. The fact that the married group in our sample is four times as big as the singles rise a concern that the difference in happiness between these two groups might be a result of chance. To confirm whether chance play a rule here or not we will perform z-test.
+```{r}
+#Calculate the z-score
+pmn <- ((mar_n_happ[1,2]+mar_n_happ[2,2])/(mar_n_happ[1,4]+mar_n_happ[2,4]))
+zmn <- ((mar_n_happ[1,3]-mar_n_happ[2,3])-0)/sqrt(pmn*(1-pmn)*(1/mar_n_happ[1,4])+1/mar_n_happ[2,4])
+zmn
+```
+
+The above number is the z-score. We use it to insure the difference is not likely to be due to chance. Since we get a z-score that exceed the threshold for p-value of 5%. We can say that this difference is not likely due to chance.
+```{r}
+#Use filter to select married group to perform analysis on this group and plot the data
+q2data2 <- filter(q2data1, marital == "Married")
+ggplot(q2data2,aes(x = children,fill = misdeprd)) + geom_bar(position = "fill") + labs(title = "Children & Happiness", x = "Number of Children", y = "Proportion", fill = "Depression")
+```
+
+In the above graph married couples with high number of children seems to be happier than those with low number of children. 
+```{r}
+#Use dplyr functions to formulate the required data
+number22 <- q2data1 %>% group_by(children) %>% summarise(happy = sum(misdeprd == "None")/ 1)
+prop22 <- q2data1 %>% group_by(children) %>% summarise(propotion = sum(misdeprd == "None")/ n())
+tot22 <- q2data1 %>% group_by(children) %>% summarise(Total = sum(misdeprd !="d"))
+#Combile data in one table
+child_n_happy <- cbind(number22[1],number22[2],prop22[2],tot22[2])
+child_n_happy
+```
+
+Looking at the table above we can see that the number of respondent decrease dramatically as number of children increase. This rise a concern that the difference in happiness might be resulted of chance. To confirm we will perform a z-test to see whether the difference in happiness is a result of chance or not.
+```{r}
+#Calculate z-score (0 vs 3 children)
+pmc1 <- ((child_n_happy[4,2]+child_n_happy[1,2])/(child_n_happy[4,4]+child_n_happy[1,4]))
+zmc1 <- ((child_n_happy[4,3]-child_n_happy[1,3])-0)/sqrt(pmc1*(1-pmc1)*(1/child_n_happy[4,4])+1/child_n_happy[1,4])
+zmc1
+```
+
+This is the z-score comparing married couples with no children to married couples with 3 children. As we can see from the z-score we can not reject the null hypothesis. That means the difference in happiness might be due to chance rather than number of children.
+```{r}
+#Calculate z-score (0 vs 9 children)
+pmc2 <- ((child_n_happy[10,2]+child_n_happy[1,2])/(child_n_happy[10,4]+child_n_happy[1,4]))
+zmc2 <- ((child_n_happy[10,3]-child_n_happy[1,3])-0)/sqrt(pmc2*(1-pmc2)*(1/child_n_happy[10,4])+1/child_n_happy[1,4])
+zmc2
+```
+
+Same thing can be found when we compare having no children to having 9 of them, chance may played a rule here. One lesson to take from this is avoiding relaying solely on visual representation of the data and looking deeper into it by performing test statistics to insure what we see is real.
+
+
+**Research quesion 3:**
+
+A well know quotes by Leo Rosten says "Money can't buy happiness but neither can poverty". In this part we will see whether there is a relation between money and happiness & health or not.
+```{r}
+#subset the required variables for Q3 and omit NA's.
+q3data <- na.omit(select(brfss2013, genhlth, misdeprd,income2))
+#Plot bar graph shows the relation between depression (used as indicator of happiness) and level of income
+ggplot(q3data,aes(x = income2,fill = misdeprd)) + geom_bar(position = "fill") +scale_x_discrete(labels = c("10k","15k","20k","25k","35k","50k","75k","+75k")) + xlab(NULL) + labs(title = "Income & Happiness", x = "Income Level", y = "Proportion", fill = "Depression")
+```
+
+From the graph above we can see that happiness is increasing gradually with level of income.
+
+
+```{r}
+#Use dplyr functions to formulate the required data then use cbind to combine them in one table with total
+all1 <- q3data %>% group_by(income2) %>% summarise(All = sum(misdeprd == "All")/ 1)
+all2 <- q3data %>% group_by(income2) %>% summarise("prop" = sum(misdeprd == "All")/ n())
+most1 <- q3data %>% group_by(income2) %>% summarise(Most = sum(misdeprd == "Most")/ 1)
+most2 <- q3data %>% group_by(income2) %>% summarise("prop" = sum(misdeprd == "Most")/ n())
+some1 <- q3data %>% group_by(income2) %>% summarise(Some = sum(misdeprd == "Some")/ 1)
+some2 <- q3data %>% group_by(income2) %>% summarise("prop" = sum(misdeprd == "Some")/ n())
+little1 <- q3data %>% group_by(income2) %>% summarise(Little = sum(misdeprd == "A little")/ 1)
+little2 <- q3data %>% group_by(income2) %>% summarise("prop" = sum(misdeprd == "A little")/ n())
+none1 <- q3data %>% group_by(income2) %>% summarise(None = sum(misdeprd == "None")/ 1)
+none2 <- q3data %>% group_by(income2) %>% summarise("prop" = sum(misdeprd == "None")/ n())
+inc_hap_total <- cbind(all1,round(all2[2],2),most1[2],round(most2[2],2),some1[2],round(some2[2],2),little1[2],round(little2[2],2),none1[2],round(none2[2],2))
+income_n_happ <- cbind(inc_hap_total, Total = rowSums(inc_hap_total[c("All","Most","Some","Little","None")]))
+income_n_happ
+```
+
+The table above show the numerical base for the Income & Happiness graph. Since the number of people earning more than $75,000 is significantly higher than those who earn less than $50,000 -especially those who earn less than $15,000 and $10,000-, we need to perform z-test to make sure the difference is not likely due to chance.
+
+```{r}
+pih <- ((income_n_happ[1,10]+income_n_happ[8,10])/(income_n_happ[1,12]+income_n_happ[8,12]))
+zih <- ((income_n_happ[1,11]-income_n_happ[8,11])-0)/sqrt(pih*(1-pih)*(1/income_n_happ[1,12])+1/income_n_happ[8,12])
+zih
+```
+
+The number above is the z-score for the comparison between happiness level of less than $10,000 and more than $75,000 groups. Although the number of respondents vary significantly between the two groups, the z-score confirm that with 95% confidence level, the difference in happiness is not due to chance.
+
+```{r}
+#Reverse the order of factors in general health
+q3data$genhlth = with(q3data, factor(genhlth, levels = rev(levels(genhlth))))
+#Here we show the relation btween general health and level of income
+ggplot(q3data,aes(x = income2,fill = genhlth)) + geom_bar(position = "fill") + scale_x_discrete(labels = c("10k","15k","20k","25k","35k","50k","75k","+75k")) + xlab(NULL) + labs(title = "Income & Health", x = "Income Level", y = "Proportion", fill = "Health")
+```
+
+Like what we have seen with happiness, health condition is positively correlated with level of income. 
+```{r}
+#Use dplyr functions to formulate the required data then use cbind to combine them in one table with total
+all21 <- q3data %>% group_by(income2) %>% summarise(Poor = sum(genhlth == "Poor")/ 1)
+all22 <- q3data %>% group_by(income2) %>% summarise("prop" = sum(genhlth == "Poor")/ n())
+most21 <- q3data %>% group_by(income2) %>% summarise(Fair = sum(genhlth == "Fair")/ 1)
+most22 <- q3data %>% group_by(income2) %>% summarise("prop" = sum(genhlth == "Fair")/ n())
+some21 <- q3data %>% group_by(income2) %>% summarise(Good = sum(genhlth == "Good")/ 1)
+some22 <- q3data %>% group_by(income2) %>% summarise("prop" = sum(genhlth == "Good")/ n())
+little21 <- q3data %>% group_by(income2) %>% summarise(vgood = sum(genhlth == "Very good")/ 1)
+little22 <- q3data %>% group_by(income2) %>% summarise("prop" = sum(genhlth == "Very good")/ n())
+none21 <- q3data %>% group_by(income2) %>% summarise(Excellent = sum(genhlth == "Excellent")/ 1)
+none22 <- q3data %>% group_by(income2) %>% summarise("prop" = sum(genhlth == "Excellent")/ n())
+hinc_hel_total <- cbind(all21,round(all22[2],2),most21[2],round(most22[2],2),some21[2],round(some22[2],2),little21[2],round(little22[2],2),none21[2],round(none22[2],2))
+income_n_health <- cbind(hinc_hel_total, Total = rowSums(hinc_hel_total[c("Poor","Fair","Good","vgood","Excellent")]))
+income_n_health
+```
+
+In the table above we can see numbers and proportions of participants based on their level of income and health condition. The numbers inline with the graph above but since people earning more than $75,000 with excellent health condition are 27 times people with same health condition but earning less than $10,000 we have to see through the z-test whether the difference in health between them can be accounted for by chance.
+
+```{r}
+#Calculate z-score for income (high vs low) and health (excellent)
+pihe <- ((income_n_health[1,10]+income_n_health[8,2])/(income_n_health[1,12]+income_n_health[8,12]))
+zihe <- ((income_n_health[1,11]-income_n_health[8,11])-0)/sqrt(pihe*(1-pihe)*(1/income_n_health[1,12])+1/income_n_health[8,12])
+zihe
+```
+
+The z-score shows that even though there is a huge difference in the sample size, with 95% confidence level the difference between them is not due to chance.
+
+* * *
+
+## Conclusion
+
+To conclude, as we stated at the beginning, we can not say -based on the data we have- that marriage cause happiness or money cause happiness and better health condition. However, we can say that there is a relation between these factors and there might be a confounding factors that affects both. In order to find whether the above is causal relation we have to perform a scientific controlled experiment with random assignment.
