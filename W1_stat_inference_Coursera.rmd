@@ -75,7 +75,7 @@ ames %>%
 1.  Which of the following is **false**?
 <ol>
 <li> The distribution of areas of houses in Ames is unimodal and right-skewed. </li>
-<li> 50\% of houses in Ames are smaller than 1,499.69 square feet. </li>
+<li> **50\% of houses in Ames are smaller than 1,499.69 square feet.** </li>
 <li> The middle 50\% of the houses range between approximately 1,126 square feet and 1,742.7 square feet. </li>
 <li> The IQR is approximately 616.7 square feet. </li>
 <li> The smallest house is 334 square feet and the largest is 5,642 square feet. </li>
@@ -108,7 +108,15 @@ home sales.
 </div>
 ```{r samp1-dist}
 # type your code for the Exercise here, and Run Document
+ggplot(data = samp1, aes(x = area)) +
+  geom_histogram(binwidth = 250)
 
+samp1 %>%
+  summarise(avg = mean(area), samp_med = median(area), 
+            s = sd(area), samp_iqr = IQR(area),
+            samp_min = min(area), samp_max = max(area),
+            samp_q1 = quantile(area, 0.25),  
+            samp_q3 = quantile(area, 0.75))  
 ```
 
 
@@ -130,7 +138,7 @@ population.
 <ol>
 <li> Sample size of 50. </li>
 <li> Sample size of 100. </li>
-<li> Sample size of 1000. </li>
+<li> **Sample size of 1000.** </li>
 </ol>
 
 Let's take one more sample of size 50, and view the mean area in this sample:
@@ -169,7 +177,10 @@ the mean of each sample, and store each result in a vector called
 </div>
 ```{r sampling-dist}
 # type your code for the Exercise here, and Run Document
+sample_means50 %>% summarise(elements = NROW(x_bar))
 
+ggplot(data = sample_means50, aes(x = x_bar)) +
+  geom_histogram(binwidth = 20)
 ```
 
 ## Interlude: Sampling distributions
@@ -200,7 +211,12 @@ Note that for each of the 15,000 times we computed a mean, we did so from a
 </div>
 ```{r practice-sampling-dist}
 # type your code for the Exercise here, and Run Document
+sample_means_small <- ames %>%
+                    rep_sample_n(size = 10, reps = 25, replace = TRUE) %>%
+                    summarise(x_bar = mean(area))
 
+ggplot(data = sample_means_small, aes(x = x_bar)) +
+  geom_histogram()
 ```
 
 3. How many elements are there in this object called `sample_means_small`? 
@@ -213,12 +229,12 @@ Note that for each of the 15,000 times we computed a mean, we did so from a
 </ol>
 ```{r sample-means-small}
 # type your code for Question 3 here, and Run Document
-
+NROW(sample_means_small)
 ```
 
 4. Which of the following is **true** about the elements in the sampling distributions you created?
 <ol>
-<li> Each element represents a mean square footage from a simple random sample of 10 houses. </li>
+<li> **Each element represents a mean square footage from a simple random sample of 10 houses.** </li>
 <li> Each element represents the square footage of a house. </li>
 <li> Each element represents the true population mean of square footage of houses. </li>
 </ol>
@@ -330,7 +346,7 @@ shinyApp(
 
 5. It makes intuitive sense that as the sample size increases, the center of the sampling distribution becomes a more reliable estimate for the true population mean. Also as the sample size increases, the variability of the sampling distribution ________. 
 <ol>
-<li> decreases </li>
+<li> **decreases** </li>
 <li> increases </li>
 <li> stays the same </li>
 </ol>
@@ -340,7 +356,12 @@ shinyApp(
 </div>
 ```{r price-sample}
 # type your code for this Exercise here, and Run Document
-
+samp1 %>%
+  summarise(avg = mean(price), samp_med = median(price), 
+            s = sd(price), samp_iqr = IQR(price),
+            samp_min = min(price), samp_max = max(price),
+            samp_q1 = quantile(price, 0.25),  
+            samp_q3 = quantile(price, 0.75))
 ```
 
 <div id="exercise">
@@ -348,7 +369,12 @@ shinyApp(
 </div>
 ```{r price-sampling}
 # type your code for this Exercise here, and Run Document
+sample_means50 <- ames %>%
+                    rep_sample_n(size = 50, reps = 5000, replace = TRUE) %>%
+                    summarise(p_x_bar = mean(price))
 
+ggplot(data = sample_means50, aes(x = p_x_bar)) +
+  geom_histogram(binwidth = 20)
 ```
 
 <div id="exercise">
@@ -356,7 +382,12 @@ shinyApp(
 </div>
 ```{r price-sampling-more}
 # type your code for this Exercise here, and Run Document
+sample_means150 <- ames %>%
+                    rep_sample_n(size = 150, reps = 5000, replace = TRUE) %>%
+                    summarise(p_x_bar = mean(price))
 
+ggplot(data = sample_means150, aes(x = p_x_bar)) +
+  geom_histogram(binwidth = 20)
 ```
 
 * * *
@@ -373,7 +404,8 @@ summary statistics. You are welcomed to use the app for exploration.
 </div>
 ```{r price-sample-small}
 # type your code for this Exercise here, and Run Document
-
+samp2 <- ames %>% sample_n(size = 15)
+samp2 %>% summarise(p_x_bar = mean(price))
 ```
 
 <div id="exercise">
@@ -381,7 +413,13 @@ summary statistics. You are welcomed to use the app for exploration.
 </div>
 ```{r price-sampling-small}
 # type your code for this Exercise here, and Run Document
+sample_means15 <- ames %>% rep_sample_n(size = 15, reps = 2000, replace = T) %>%
+            summarise(avg = mean(price)) 
 
+ggplot(data = sample_means15, aes(x = avg)) +
+  geom_histogram(binwidth = 20)
+
+ames %>% summarize(pop_p_mean = mean(price))
 ```
 
 <div id="exercise">
@@ -389,18 +427,39 @@ summary statistics. You are welcomed to use the app for exploration.
 </div>
 ```{r price-sampling-big}
 # type your code for this Exercise here, and Run Document
+sample_means150 <- ames %>% rep_sample_n(size = 150, reps = 2000, replace = T) %>%
+            summarise(avg = mean(price))
 
+ggplot(data = sample_means150, aes(x = avg)) +
+  geom_histogram(binwidth = 20)
+
+#sample_means150 %>%
+#            summarise(avg = mean(price), samp_med = median(price), 
+#            s = sd(price), samp_iqr = IQR(price),
+#            samp_min = min(price), samp_max = max(price),
+#            samp_q1 = quantile(price, 0.25),  
+#            samp_q3 = quantile(price, 0.75))
 ```
 
 6. Which of the following is false? 
 <ol>
-<li> The variability of the sampling distribution with the smaller sample size (`sample_means50`) is smaller than the variability of the sampling distribution with the larger sample size (`sample_means150`). </li>
+<li> **The variability of the sampling distribution with the smaller sample size (`sample_means50`) is smaller than the variability of the sampling distribution with the larger sample size (`sample_means150`).** </li>
 <li> The means for the two sampling distribtuions are roughly similar. </li> 
 <li> Both sampling distributions are symmetric. </li>
 </ol>
 ```{r price-sampling-compare}
 # type your code for Question 6 here, and Run Document
+sample_means150 <- ames %>% rep_sample_n(size = 150, reps = 2000, replace = T) %>%
+            summarise(avg = mean(area))
 
+sample_means50 <- ames %>% rep_sample_n(size = 150, reps = 2000, replace = T) %>%
+            summarise(avg = mean(area))
+
+ggplot(data = sample_means150, aes(x = avg)) +
+  geom_histogram(binwidth = 20) + labs(title = "150 n")
+
+ggplot(data = sample_means50, aes(x = avg)) +
+  geom_histogram(binwidth = 20) + labs(title = "50 n")
 ```
 
 <div id="license">
